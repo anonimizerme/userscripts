@@ -1,0 +1,2 @@
+# userscripts
+Userscripts for safari
