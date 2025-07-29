@@ -1,17 +1,23 @@
 # userscripts
 
-Library of scripts that may be used by [UserScripts](https://github.com/quoid/userscripts) extenstion for Safari.
+Library of scripts that may be used by [UserScripts](https://github.com/quoid/userscripts) extension for Safari, Chrome and any browser that supports user scripts.
 
 ## Library
 
-### hotkeys
 
-Allow highligt links, buttons and inputs to navigate using keyboard.
+### ChatGPT bulk delete
 
-Click 'f' to toggle shortcut hightlights.
+Allows users to delete multiple chats in bulk.
 
-Click 'j' and 'k' to scroll page.
+![Demo](https://github.com/anonimizerme/userscripts/raw/main/chatgpt/demo.gif)
+
+
+### Hotkeys
+
+Allows highlighting links, buttons and inputs to navigate using the keyboard.
+
+Press 'f' to toggle shortcut highlights.
+
+Press 'j' and 'k' to scroll the page.
 
 ![Demo](https://github.com/anonimizerme/userscripts/raw/main/hotkeys/demo.gif)
-
-
