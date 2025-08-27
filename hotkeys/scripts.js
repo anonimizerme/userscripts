@@ -254,5 +254,6 @@
 
   document.addEventListener('keydown', handleKeyDown, true);
   document.addEventListener('keyup', handleKeyUp, true);
+  document.addEventListener('mousedown', () => hintsActive && clearHints(), true);
   window.removeHotkeyListeners = cleanup;
 })();
