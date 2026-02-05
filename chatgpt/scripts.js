@@ -1,8 +1,8 @@
 
 // ==UserScript==
-// @name         ChatGPT Bulk Chat Deleter (Refactored)
+// @name         ChatGPT Bulk Chat Deleter
 // @namespace    http://example.com/
-// @version      0.2
+// @version      0.3
 // @description  Add checkboxes to ChatGPT chats for bulk deletion
 // @match        https://chatgpt.com/*
 // @grant        none
@@ -15,6 +15,7 @@
   const CONFIG = {
     SELECTORS: {
       history: '#history',
+      historyContainer: 'nav[aria-label="Chat history"]',
       menuLabel: '.__menu-label',
       menuItem: '#history .__menu-item .truncate'
     },
@@ -28,27 +29,53 @@
       authEndpoint: '/api/auth/session'
     },
     STYLES: {
+      container: `
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 8px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+      `,
       toggleButton: `
-        margin-left: 8px;
-        background: transparent;
-        color: #000;
-        border: 1px solid #888;
-        padding: 2px 6px;
-        font-size: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        color: inherit;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 4px 8px;
+        font-size: 11px;
         cursor: pointer;
         border-radius: 4px;
+        transition: all 0.2s;
+        font-weight: 500;
+        white-space: nowrap;
+      `,
+      toggleButtonActive: `
+        background: rgba(0, 0, 0, 0.1);
+        border-color: rgba(0, 0, 0, 0.2);
       `,
       deleteButton: `
-        margin: 10px 0 10px 10px;
-        background-color: #c00;
+        background: #ef4444;
         color: #fff;
         border: none;
-        padding: 6px 12px;
+        padding: 4px 10px;
         border-radius: 4px;
-        font-weight: bold;
+        font-weight: 500;
+        font-size: 11px;
         cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
       `,
-      checkbox: 'margin-right: 5px;'
+      deleteButtonHover: `
+        background: #dc2626;
+      `,
+      checkbox: `
+        margin-right: 8px;
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+      `
     }
   };
 
@@ -58,6 +85,8 @@
       this.deleteBtn = null;
       this.lastChecked = null;
       this.toggleBtn = null;
+      this.observer = null;
+      this.container = null;
     }
 
     async waitForElement(selector, timeout = CONFIG.TIMEOUTS.element) {
@@ -85,31 +114,70 @@
       button.id = 'bulk-delete-toggle-btn';
       button.textContent = '🗑️ Bulk';
       button.style.cssText = CONFIG.STYLES.toggleButton;
-      button.addEventListener('click', () => this.toggleDeleteMode());
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        this.toggleDeleteMode();
+      });
+      button.addEventListener('mouseenter', () => {
+        if (!this.deleteMode) {
+          button.style.background = 'rgba(0, 0, 0, 0.08)';
+        }
+      });
+      button.addEventListener('mouseleave', () => {
+        if (!this.deleteMode) {
+          button.style.background = 'rgba(255, 255, 255, 0.1)';
+        }
+      });
       return button;
     }
 
     createDeleteButton() {
       const button = document.createElement('button');
-      button.textContent = 'Delete selected';
+      button.textContent = 'Delete';
       button.style.cssText = CONFIG.STYLES.deleteButton;
-      button.addEventListener('click', () => this.handleDelete());
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        this.handleDelete();
+      });
+      button.addEventListener('mouseenter', () => {
+        button.style.background = '#dc2626';
+        button.style.transform = 'scale(1.02)';
+      });
+      button.addEventListener('mouseleave', () => {
+        button.style.background = '#ef4444';
+        button.style.transform = 'scale(1)';
+      });
       return button;
+    }
+
+    createContainer() {
+      const container = document.createElement('div');
+      container.id = 'bulk-delete-container';
+      container.style.cssText = CONFIG.STYLES.container;
+      return container;
     }
 
     toggleDeleteMode() {
       this.deleteMode = !this.deleteMode;
       this.toggleCheckBoxes(this.deleteMode);
       this.manageDeleteButton();
+
+      // Update toggle button style
+      if (this.deleteMode) {
+        this.toggleBtn.style.cssText = CONFIG.STYLES.toggleButton + CONFIG.STYLES.toggleButtonActive;
+        this.startObserving();
+      } else {
+        this.toggleBtn.style.cssText = CONFIG.STYLES.toggleButton;
+        this.stopObserving();
+      }
     }
 
     manageDeleteButton() {
-      const header = document.querySelector(CONFIG.SELECTORS.menuLabel);
-      if (!header) return;
-
       if (this.deleteMode && !this.deleteBtn) {
         this.deleteBtn = this.createDeleteButton();
-        header.after(this.deleteBtn);
+        this.container.appendChild(this.deleteBtn);
       } else if (!this.deleteMode && this.deleteBtn) {
         this.deleteBtn.remove();
         this.deleteBtn = null;
@@ -161,6 +229,47 @@
           checkbox.remove();
         }
       });
+    }
+
+    startObserving() {
+      const historyElement = document.querySelector(CONFIG.SELECTORS.history);
+      if (!historyElement) return;
+
+      this.observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1) {
+              // Check if the added node is a chat item or contains chat items
+              const chatItems = node.matches && node.matches('a.__menu-item')
+                ? [node]
+                : node.querySelectorAll ? node.querySelectorAll('a.__menu-item') : [];
+
+              chatItems.forEach((chatItem) => {
+                const truncateEl = chatItem.querySelector('.truncate');
+                if (truncateEl && !truncateEl.querySelector('input[type="checkbox"]')) {
+                  const checkbox = this.createCheckbox();
+                  truncateEl.prepend(checkbox);
+                }
+              });
+            }
+          });
+        });
+      });
+
+      this.observer.observe(historyElement, {
+        childList: true,
+        subtree: true
+      });
+
+      console.log('[Bulk Deleter] Started observing DOM changes');
+    }
+
+    stopObserving() {
+      if (this.observer) {
+        this.observer.disconnect();
+        this.observer = null;
+        console.log('[Bulk Deleter] Stopped observing DOM changes');
+      }
     }
 
     async getAccessToken() {
@@ -260,26 +369,37 @@
 
     async init() {
       try {
-        const sidebar = await this.waitForElement(CONFIG.SELECTORS.history);
-        const header = sidebar.querySelector(CONFIG.SELECTORS.menuLabel);
-
-        if (!header) {
-          console.warn('Chat history header not found');
-          return;
-        }
+        console.log('[Bulk Deleter] Starting initialization...');
 
         // Prevent duplicate initialization
-        if (document.getElementById('bulk-delete-toggle-btn')) {
-          console.log('Bulk deleter already initialized');
+        if (document.getElementById('bulk-delete-container')) {
+          console.log('[Bulk Deleter] Already initialized');
           return;
         }
 
-        this.toggleBtn = this.createToggleButton();
-        header.appendChild(this.toggleBtn);
+        // Wait for history container
+        await this.waitForElement(CONFIG.SELECTORS.history);
+        console.log('[Bulk Deleter] History element found');
 
-        console.log('ChatGPT Bulk Deleter initialized successfully');
+        const historyEl = document.querySelector(CONFIG.SELECTORS.history);
+        if (!historyEl) {
+          console.error('[Bulk Deleter] History element not found');
+          return;
+        }
+
+        // Create container and button
+        this.container = this.createContainer();
+        this.toggleBtn = this.createToggleButton();
+
+        // Add button to container
+        this.container.appendChild(this.toggleBtn);
+
+        // Insert container before history
+        historyEl.before(this.container);
+
+        console.log('[Bulk Deleter] ✓ Initialized successfully');
       } catch (error) {
-        console.error('Failed to initialize bulk deleter:', error);
+        console.error('[Bulk Deleter] Failed to initialize:', error);
       }
     }
   }
