@@ -21,3 +21,10 @@ Press 'f' to toggle shortcut highlights.
 Press 'j' and 'k' to scroll the page.
 
 ![Demo](https://github.com/anonimizerme/userscripts/raw/main/hotkeys/demo.gif)
+
+
+### YouTube recommendations panel toggle
+
+Adds a button to YouTube video pages that toggles the recommendations panel.
+
+![Demo](https://github.com/anonimizerme/userscripts/raw/main/youtube/demo.gif)
