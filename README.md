@@ -28,3 +28,8 @@ Press 'j' and 'k' to scroll the page.
 Adds a button to YouTube video pages that toggles the recommendations panel.
 
 ![Demo](https://github.com/anonimizerme/userscripts/raw/main/youtube/demo.gif)
+
+
+### Lichess puzzle session statistics
+
+Shows live solved, successful, failed, and success-rate statistics while solving Lichess puzzles.
