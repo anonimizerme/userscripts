@@ -13,6 +13,7 @@
   const config = {
     buttonId: 'youtube-secondary-toggle-button',
     panelSelector: 'ytd-watch-flexy #secondary',
+    fullscreenSelector: 'ytd-watch-flexy[fullscreen], .html5-video-player.ytp-fullscreen',
     storageKey: 'youtube-secondary-panel-hidden',
     checkDelay: 150,
     resizeDelays: [0, 80, 240],
@@ -26,6 +27,18 @@
   const isWatchPage = () => location.pathname === '/watch';
 
   const findPanel = () => document.querySelector(config.panelSelector);
+
+  const isVideoFullscreen = () => Boolean(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.querySelector(config.fullscreenSelector)
+  );
+
+  const updateButtonVisibility = () => {
+    if (button) {
+      button.style.display = isVideoFullscreen() ? 'none' : '';
+    }
+  };
 
   const forceYouTubeLayout = () => {
     const watchFlexy = document.querySelector('ytd-watch-flexy');
@@ -72,6 +85,8 @@
       if (button.dataset.hidden !== pressed) {
         button.dataset.hidden = pressed;
       }
+
+      updateButtonVisibility();
     }
   };
 
@@ -131,8 +146,10 @@
 
     observer = new MutationObserver(scheduleApply);
     observer.observe(document.documentElement, {
+      attributes: true,
       childList: true,
       subtree: true,
+      attributeFilter: ['class', 'fullscreen'],
     });
   };
 
@@ -156,6 +173,8 @@
   window.addEventListener('popstate', handleNavigation);
   window.addEventListener('yt-navigate-finish', handleNavigation);
   window.addEventListener('youtube-secondary-toggle:navigation', handleNavigation);
+  document.addEventListener('fullscreenchange', updateButtonVisibility);
+  document.addEventListener('webkitfullscreenchange', updateButtonVisibility);
 
   ensureButton();
   startObserver();
