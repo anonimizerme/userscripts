@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ChatGPT Bulk Chat Deleter
 // @namespace    http://example.com/
-// @version      0.3
+// @version      0.4
 // @description  Add checkboxes to ChatGPT chats for bulk deletion
 // @match        https://chatgpt.com/*
 // @grant        none
@@ -17,7 +17,7 @@
       history: '#history',
       historyContainer: 'nav[aria-label="Chat history"]',
       menuLabel: '.__menu-label',
-      menuItem: '#history .__menu-item .truncate'
+      menuItem: '#history a.__menu-item[href*="/c/"]'
     },
     TIMEOUTS: {
       element: 3000,
@@ -71,7 +71,8 @@
         background: #dc2626;
       `,
       checkbox: `
-        margin-right: 8px;
+        flex: 0 0 auto;
+        margin: 0;
         width: 16px;
         height: 16px;
         cursor: pointer;
@@ -216,15 +217,21 @@
       }
     }
 
+    addCheckbox(chatItem) {
+      if (chatItem.querySelector('.bulk-delete-checkbox')) return;
+
+      const content = chatItem.querySelector(':scope > div:first-child');
+      if (content) content.prepend(this.createCheckbox());
+    }
+
     toggleCheckBoxes(show) {
       const chatItems = document.querySelectorAll(CONFIG.SELECTORS.menuItem);
 
-      chatItems.forEach((chat) => {
-        let checkbox = chat.querySelector('input[type="checkbox"]');
+      chatItems.forEach((chatItem) => {
+        const checkbox = chatItem.querySelector('.bulk-delete-checkbox');
 
         if (show && !checkbox) {
-          checkbox = this.createCheckbox();
-          chat.prepend(checkbox);
+          this.addCheckbox(chatItem);
         } else if (!show && checkbox) {
           checkbox.remove();
         }
@@ -240,17 +247,11 @@
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === 1) {
               // Check if the added node is a chat item or contains chat items
-              const chatItems = node.matches && node.matches('a.__menu-item')
+              const chatItems = node.matches && node.matches('a.__menu-item[href*="/c/"]')
                 ? [node]
-                : node.querySelectorAll ? node.querySelectorAll('a.__menu-item') : [];
+                : node.querySelectorAll ? node.querySelectorAll('a.__menu-item[href*="/c/"]') : [];
 
-              chatItems.forEach((chatItem) => {
-                const truncateEl = chatItem.querySelector('.truncate');
-                if (truncateEl && !truncateEl.querySelector('input[type="checkbox"]')) {
-                  const checkbox = this.createCheckbox();
-                  truncateEl.prepend(checkbox);
-                }
-              });
+              chatItems.forEach((chatItem) => this.addCheckbox(chatItem));
             }
           });
         });
