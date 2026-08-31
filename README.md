@@ -5,6 +5,14 @@ Library of scripts that may be used by [UserScripts](https://github.com/quoid/us
 ## Library
 
 
+### Boosty video download links
+
+Adds direct download links for every video quality available to the current
+Boosty account.
+
+Script: [`boosty/scripts.js`](boosty/scripts.js)
+
+
 ### ChatGPT bulk delete
 
 Allows users to delete multiple chats in bulk.
@@ -33,3 +41,12 @@ Adds a button to YouTube video pages that toggles the recommendations panel.
 ### Lichess puzzle session statistics
 
 Shows live solved, successful, failed, and success-rate statistics while solving Lichess puzzles.
+
+
+
+### YouTube playlist one-click remove
+
+Adds a trash button beside every video menu on YouTube playlist pages. Clicking
+it removes the video through YouTube's native playlist action.
+
+Script: [`youtube-playlist-remove/scripts.js`](youtube-playlist-remove/scripts.js)
