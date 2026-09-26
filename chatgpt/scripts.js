@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ChatGPT Bulk Chat Deleter
 // @namespace    http://example.com/
-// @version      0.4
+// @version      0.5
 // @description  Add checkboxes to ChatGPT chats for bulk deletion
 // @match        https://chatgpt.com/*
 // @grant        none
@@ -14,13 +14,11 @@
   // Configuration
   const CONFIG = {
     SELECTORS: {
-      history: '#history',
-      historyContainer: 'nav[aria-label="Chat history"]',
-      menuLabel: '.__menu-label',
-      menuItem: '#history a.__menu-item[href*="/c/"]'
+      history: 'nav[aria-label="Chat history"]',
+      menuItem: 'nav[aria-label="Chat history"] a[href*="/c/"]'
     },
     TIMEOUTS: {
-      element: 3000,
+      element: 30000,
       interval: 300
     },
     API: {
@@ -188,6 +186,7 @@
     createCheckbox() {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
+      checkbox.setAttribute('aria-label', 'Select chat for deletion');
       checkbox.className = 'bulk-delete-checkbox';
       checkbox.style.cssText = CONFIG.STYLES.checkbox;
 
@@ -220,8 +219,7 @@
     addCheckbox(chatItem) {
       if (chatItem.querySelector('.bulk-delete-checkbox')) return;
 
-      const content = chatItem.querySelector(':scope > div:first-child');
-      if (content) content.prepend(this.createCheckbox());
+      chatItem.prepend(this.createCheckbox());
     }
 
     toggleCheckBoxes(show) {
@@ -247,9 +245,9 @@
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === 1) {
               // Check if the added node is a chat item or contains chat items
-              const chatItems = node.matches && node.matches('a.__menu-item[href*="/c/"]')
+              const chatItems = node.matches && node.matches(CONFIG.SELECTORS.menuItem)
                 ? [node]
-                : node.querySelectorAll ? node.querySelectorAll('a.__menu-item[href*="/c/"]') : [];
+                : node.querySelectorAll ? node.querySelectorAll(CONFIG.SELECTORS.menuItem) : [];
 
               chatItems.forEach((chatItem) => this.addCheckbox(chatItem));
             }
@@ -395,8 +393,21 @@
         // Add button to container
         this.container.appendChild(this.toggleBtn);
 
-        // Insert container before history
-        historyEl.before(this.container);
+        // Keep the controls inside the sidebar's scroll area.
+        historyEl.prepend(this.container);
+
+        // ChatGPT can replace the server-rendered sidebar during hydration.
+        new MutationObserver(() => {
+          const history = document.querySelector(CONFIG.SELECTORS.history);
+          if (history && !this.container.isConnected) {
+            history.prepend(this.container);
+            if (this.deleteMode) {
+              this.toggleCheckBoxes(true);
+              this.stopObserving();
+              this.startObserving();
+            }
+          }
+        }).observe(document.body, { childList: true, subtree: true });
 
         console.log('[Bulk Deleter] ✓ Initialized successfully');
       } catch (error) {
