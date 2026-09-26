@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ChatGPT Bulk Chat Deleter
 // @namespace    http://example.com/
-// @version      0.5
+// @version      0.6
 // @description  Add checkboxes to ChatGPT chats for bulk deletion
 // @match        https://chatgpt.com/*
 // @grant        none
@@ -69,8 +69,11 @@
         background: #dc2626;
       `,
       checkbox: `
+        appearance: auto;
+        -webkit-appearance: checkbox;
+        accent-color: #2563eb;
         flex: 0 0 auto;
-        margin: 0;
+        margin: 0 8px 0 0;
         width: 16px;
         height: 16px;
         cursor: pointer;
