@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ChatGPT Bulk Chat Deleter
 // @namespace    http://example.com/
-// @version      0.6
+// @version      0.7
 // @description  Add checkboxes to ChatGPT chats for bulk deletion
 // @match        https://chatgpt.com/*
 // @grant        none
@@ -303,7 +303,7 @@
       const promises = chatData.map(({ chat, chatId }) =>
         this.deleteChat(chatId, accessToken)
           .then(() => {
-            chat.remove();
+            (chat.closest('[data-sidebar-chatgpt-conversation-key]') || chat).remove();
             console.log(`Chat ${chatId} deleted successfully`);
           })
           .catch(error => {
