@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ChatGPT Bulk Chat Deleter
 // @namespace    http://example.com/
-// @version      0.7
+// @version      0.8
 // @description  Add checkboxes to ChatGPT chats for bulk deletion
 // @match        https://chatgpt.com/*
 // @grant        none
@@ -14,8 +14,8 @@
   // Configuration
   const CONFIG = {
     SELECTORS: {
-      history: 'nav[aria-label="Chat history"]',
-      menuItem: 'nav[aria-label="Chat history"] a[href*="/c/"]'
+      history: 'nav[aria-label="Home"], nav[aria-label="Chat history"]',
+      menuItem: 'nav[aria-label="Home"] a[data-interactive-row-link="true"][href*="/c/"], nav[aria-label="Chat history"] a[href*="/c/"]'
     },
     TIMEOUTS: {
       element: 30000,
