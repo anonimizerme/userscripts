@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ChatGPT Bulk Chat Deleter
 // @namespace    http://example.com/
-// @version      0.8
+// @version      0.9
 // @description  Add checkboxes to ChatGPT chats for bulk deletion
 // @match        https://chatgpt.com/*
 // @grant        none
@@ -299,19 +299,22 @@
       return match ? match[1] : null;
     }
 
-    async deleteChatBatch(chatData, accessToken) {
-      const promises = chatData.map(({ chat, chatId }) =>
-        this.deleteChat(chatId, accessToken)
-          .then(() => {
+    async deleteChats(chatData, accessToken) {
+      let next = 0;
+      const worker = async () => {
+        while (next < chatData.length) {
+          const { chat, chatId } = chatData[next++];
+          try {
+            await this.deleteChat(chatId, accessToken);
             (chat.closest('[data-sidebar-chatgpt-conversation-key]') || chat).remove();
             console.log(`Chat ${chatId} deleted successfully`);
-          })
-          .catch(error => {
+          } catch (error) {
             console.error(`Failed to delete chat ${chatId}:`, error);
-          })
-      );
+          }
+        }
+      };
 
-      return Promise.allSettled(promises);
+      await Promise.all(Array.from({ length: Math.min(CONFIG.API.concurrency, chatData.length) }, worker));
     }
 
     async deleteChat(chatId, accessToken) {
@@ -360,11 +363,7 @@
         return;
       }
 
-      // Process in batches
-      for (let i = 0; i < chatData.length; i += CONFIG.API.concurrency) {
-        const batch = chatData.slice(i, i + CONFIG.API.concurrency);
-        await this.deleteChatBatch(batch, accessToken);
-      }
+      await this.deleteChats(chatData, accessToken);
 
       console.log(`Bulk deletion completed for ${chatData.length} chats`);
     }
