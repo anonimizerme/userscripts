@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Safari Hotkey Link Navigation
 // @namespace   http://example.com/
-// @version     1.13
+// @version     1.14
 // @description Navigate links using hotkeys in Safari
 // @match       *://*/*
 // @grant       none
@@ -67,7 +67,13 @@
       safePoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
     ];
     return !points.some(({ x, y }) => {
-      const elementFromPoint = document.elementFromPoint(x, y);
+      let elementFromPoint = document.elementFromPoint(x, y);
+      // Document hit tests stop at shadow hosts; contains() cannot cross shadow roots.
+      while (elementFromPoint?.shadowRoot?.elementFromPoint) {
+        const innerElement = elementFromPoint.shadowRoot.elementFromPoint(x, y);
+        if (!innerElement || innerElement === elementFromPoint) break;
+        elementFromPoint = innerElement;
+      }
       return elementFromPoint && (element.contains(elementFromPoint) || elementFromPoint.contains(element));
     });
   };
