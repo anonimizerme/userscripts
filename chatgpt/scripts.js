@@ -2,10 +2,11 @@
 // ==UserScript==
 // @name         ChatGPT Bulk Chat Deleter
 // @namespace    http://example.com/
-// @version      0.9
+// @version      0.10
 // @description  Add checkboxes to ChatGPT chats for bulk deletion
 // @match        https://chatgpt.com/*
 // @grant        none
+// @run-at       document-idle
 // ==/UserScript==
 
 (() => {
@@ -14,12 +15,9 @@
   // Configuration
   const CONFIG = {
     SELECTORS: {
+      recentOptions: '[data-sidebar-project-container-id="chats"] button[aria-label="Chat sidebar options"]',
       history: 'nav[aria-label="Home"], nav[aria-label="Chat history"]',
       menuItem: 'nav[aria-label="Home"] a[data-interactive-row-link="true"][href*="/c/"], nav[aria-label="Chat history"] a[href*="/c/"]'
-    },
-    TIMEOUTS: {
-      element: 30000,
-      interval: 300
     },
     API: {
       concurrency: 5,
@@ -27,32 +25,6 @@
       authEndpoint: '/api/auth/session'
     },
     STYLES: {
-      container: `
-        padding: 8px 12px;
-        margin-bottom: 8px;
-        background: rgba(0, 0, 0, 0.05);
-        border-radius: 8px;
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        justify-content: space-between;
-      `,
-      toggleButton: `
-        background: rgba(255, 255, 255, 0.1);
-        color: inherit;
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        padding: 4px 8px;
-        font-size: 11px;
-        cursor: pointer;
-        border-radius: 4px;
-        transition: all 0.2s;
-        font-weight: 500;
-        white-space: nowrap;
-      `,
-      toggleButtonActive: `
-        background: rgba(0, 0, 0, 0.1);
-        border-color: rgba(0, 0, 0, 0.2);
-      `,
       deleteButton: `
         background: #ef4444;
         color: #fff;
@@ -64,9 +36,6 @@
         cursor: pointer;
         transition: all 0.2s;
         white-space: nowrap;
-      `,
-      deleteButtonHover: `
-        background: #dc2626;
       `,
       checkbox: `
         appearance: auto;
@@ -91,45 +60,29 @@
       this.container = null;
     }
 
-    async waitForElement(selector, timeout = CONFIG.TIMEOUTS.element) {
-      return new Promise((resolve, reject) => {
-        const interval = CONFIG.TIMEOUTS.interval;
-        let elapsed = 0;
-
-        const check = () => {
-          const element = document.querySelector(selector);
-          if (element) return resolve(element);
-
-          elapsed += interval;
-          if (elapsed >= timeout) {
-            return reject(new Error(`Timeout: ${selector} not found after ${timeout}ms`));
-          }
-
-          setTimeout(check, interval);
-        };
-        check();
-      });
-    }
-
-    createToggleButton() {
+    createToggleButton(template) {
       const button = document.createElement('button');
       button.id = 'bulk-delete-toggle-btn';
-      button.textContent = '🗑️ Bulk';
-      button.style.cssText = CONFIG.STYLES.toggleButton;
+      button.type = 'button';
+      button.title = 'Bulk delete chats';
+      button.setAttribute('aria-label', 'Bulk delete chats');
+      button.setAttribute('aria-pressed', 'false');
+      button.className = template.className;
+      for (const name of ['data-color', 'data-variant', 'data-uniform', 'data-size']) {
+        if (template.hasAttribute(name)) button.setAttribute(name, template.getAttribute(name));
+      }
+      const icon = template.querySelector('svg')?.cloneNode(true);
+      const use = icon?.querySelector('use');
+      if (use?.getAttribute('href')) {
+        use.setAttribute('href', use.getAttribute('href').split('#')[0] + '#codex-icon-trash-light-16');
+        button.appendChild(icon);
+      } else {
+        button.textContent = '🗑️';
+      }
       button.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
         this.toggleDeleteMode();
-      });
-      button.addEventListener('mouseenter', () => {
-        if (!this.deleteMode) {
-          button.style.background = 'rgba(0, 0, 0, 0.08)';
-        }
-      });
-      button.addEventListener('mouseleave', () => {
-        if (!this.deleteMode) {
-          button.style.background = 'rgba(255, 255, 255, 0.1)';
-        }
       });
       return button;
     }
@@ -155,9 +108,9 @@
     }
 
     createContainer() {
-      const container = document.createElement('div');
+      const container = document.createElement('span');
       container.id = 'bulk-delete-container';
-      container.style.cssText = CONFIG.STYLES.container;
+      container.className = 'flex items-center gap-1';
       return container;
     }
 
@@ -166,13 +119,15 @@
       this.toggleCheckBoxes(this.deleteMode);
       this.manageDeleteButton();
 
-      // Update toggle button style
+      this.toggleBtn.setAttribute('aria-pressed', String(this.deleteMode));
+      // Keep the native hover controls visible while selection mode is active.
+      this.toggleBtn.setAttribute('data-state', this.deleteMode ? 'open' : 'closed');
+      this.toggleBtn.style.color = this.deleteMode ? '#ef4444' : '';
       if (this.deleteMode) {
-        this.toggleBtn.style.cssText = CONFIG.STYLES.toggleButton + CONFIG.STYLES.toggleButtonActive;
         this.startObserving();
       } else {
-        this.toggleBtn.style.cssText = CONFIG.STYLES.toggleButton;
         this.stopObserving();
+        this.lastChecked = null;
       }
     }
 
@@ -368,78 +323,45 @@
       console.log(`Bulk deletion completed for ${chatData.length} chats`);
     }
 
-    async init() {
-      try {
-        console.log('[Bulk Deleter] Starting initialization...');
+    mountControls() {
+      if (this.container?.isConnected) return;
+      const options = document.querySelector(CONFIG.SELECTORS.recentOptions);
+      if (!options) return;
 
-        // Prevent duplicate initialization
-        if (document.getElementById('bulk-delete-container')) {
-          console.log('[Bulk Deleter] Already initialized');
-          return;
-        }
-
-        // Wait for history container
-        await this.waitForElement(CONFIG.SELECTORS.history);
-        console.log('[Bulk Deleter] History element found');
-
-        const historyEl = document.querySelector(CONFIG.SELECTORS.history);
-        if (!historyEl) {
-          console.error('[Bulk Deleter] History element not found');
-          return;
-        }
-
-        // Create container and button
+      if (!this.container) {
         this.container = this.createContainer();
-        this.toggleBtn = this.createToggleButton();
-
-        // Add button to container
+        this.toggleBtn = this.createToggleButton(options);
         this.container.appendChild(this.toggleBtn);
-
-        // Keep the controls inside the sidebar's scroll area.
-        historyEl.prepend(this.container);
-
-        // ChatGPT can replace the server-rendered sidebar during hydration.
-        new MutationObserver(() => {
-          const history = document.querySelector(CONFIG.SELECTORS.history);
-          if (history && !this.container.isConnected) {
-            history.prepend(this.container);
-            if (this.deleteMode) {
-              this.toggleCheckBoxes(true);
-              this.stopObserving();
-              this.startObserving();
-            }
-          }
-        }).observe(document.body, { childList: true, subtree: true });
-
-        console.log('[Bulk Deleter] ✓ Initialized successfully');
-      } catch (error) {
-        console.error('[Bulk Deleter] Failed to initialize:', error);
       }
+      // Append only to the client-rendered Recents actions, not the hydrating nav.
+      options.parentElement.appendChild(this.container);
+      this.stopObserving();
+      if (this.deleteMode) {
+        this.lastChecked = null;
+        this.toggleCheckBoxes(true);
+        this.startObserving();
+      }
+    }
+
+    init() {
+      if (document.getElementById('bulk-delete-container')) return;
+      // A timer yields to ChatGPT; synchronous observer reinsertion can starve startup.
+      setInterval(() => {
+        try {
+          this.mountControls();
+        } catch (error) {
+          console.error('[Bulk Deleter] Failed to attach controls:', error);
+        }
+      }, 1000);
     }
   }
 
-  // Initialize when DOM is ready
-  const initializeBulkDeleter = async () => {
-    try {
-      await new Promise(resolve => {
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', resolve);
-        } else {
-          resolve();
-        }
-      });
-
-      const bulkDeleter = new BulkDeleter();
-      await bulkDeleter.init();
-    } catch (error) {
-      console.error('Error initializing ChatGPT Bulk Deleter:', error);
-    }
-  };
+  const initializeBulkDeleter = () => new BulkDeleter().init();
 
   // Start the script
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeBulkDeleter);
-  } else {
+  if (document.readyState === 'complete') {
     initializeBulkDeleter();
+  } else {
+    window.addEventListener('load', initializeBulkDeleter, { once: true });
   }
 })();
