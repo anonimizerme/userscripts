@@ -17,7 +17,7 @@ Script: [`boosty/scripts.js`](boosty/scripts.js)
 
 Allows users to delete multiple chats in bulk.
 
-![Demo](https://github.com/anonimizerme/userscripts/raw/main/chatgpt/demo.gif)
+<img src="https://github.com/anonimizerme/userscripts/raw/main/chatgpt/demo.gif" alt="Demo" width="400">
 
 
 ### Hotkeys
